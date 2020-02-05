@@ -47,6 +47,7 @@ def main():
 
   jsonFile = open('/Users/sophieso/Documents/Workspace/ColorMatcher/result.json', 'w+')
   json.dump(allElements, jsonFile)
+  jsonFile.close()
     
 
 def searchSwiftFiles():
@@ -71,24 +72,31 @@ def findUIElements(filePath):
   elementList = ElementList()
   with open(filePath) as f:
     read_data = f.read()
+    f.closed
 
-    elementList.controllers = matchControllers(read_data)
-    elementList.cells = findCells(read_data)
     elementList.labels = findLabels(read_data)
     elementList.icons = findIcons(read_data)
     elementList.backgroundColors = findBackgroundColors(read_data)
 
     mapping = ColorMapping()
-    matchLabelColors(elementList.labels, mapping)
     matchIconColors(elementList.icons, mapping)
+    matchLabelColors(elementList.labels, mapping)
     matchBackgroundColors(elementList.backgroundColors, mapping)
 
-    f.closed
+  updateColors(read_data, elementList, filePath)
 
   if elementList.totalElementCount() > 0:
-    elementDict = {'file': filePath, 'controllers': elementList.controllers, 'cells': elementList.cells, 'labels': elementList.labels, 'icons': elementList.icons, 'backgroundColors': elementList.backgroundColors}
+    elementDict = {'file': filePath, 'labels': elementList.labels, 'icons': elementList.icons, 'backgroundColors': elementList.backgroundColors}
     return elementDict
     
+def updateColors(data, elementList, filePath):
+  updatedData = data
+  updatedData = updateIconColors(elementList.icons, updatedData)
+  updatedData = updateLabelColors(elementList.labels, updatedData)
+  updatedData = updateBackgroundColors(elementList.backgroundColors, updatedData)
+
+  with open(filePath, 'w') as f:
+    f.write(updatedData)
 
 # label handlers
 def findLabels(data):
@@ -126,6 +134,21 @@ def matchLabelColors(elements, mapping):
       matchedColors.append({'original': originalColor, 'new': newColor})
 
     item['color'] = matchedColors
+
+def updateLabelColors(elements, data):
+  updatedData = data
+  for item in elements:
+    element = item['element']
+
+    for color in item['color']:
+      originalColor = color['original']
+      newColor = color['new']
+
+      if len(newColor) > 0:
+        pattern = re.compile(r'(%s.textColor\s*=\s*)(UIColor)?(\.)%s' %(element, originalColor))
+        updatedData = pattern.sub(r'\1\2\3%s' %newColor, updatedData)
+
+  return updatedData
 
 # icon handlers
 def findIcons(data):
@@ -189,6 +212,24 @@ def matchIconColors(elements, mapping):
 
     item['color'] = matchedColors
 
+def updateIconColors(elements, data):
+  updatedData = data
+  for item in elements:
+    element = item['element']
+
+    for color in item['color']:
+      originalColor = color['original']
+      newColor = color['new']
+
+      if len(newColor) > 0:
+        iconPattern = re.compile(r'(tinted\(\s*|color:\s*)(UIColor)*(\.)*%s' %originalColor)
+        updatedData = iconPattern.sub(r'\1\2\3%s' %newColor, updatedData)
+
+        tintPattern = re.compile(r'(%s.tintColor\s*=\s*)(UIColor)?(\.)%s' %(element, originalColor))
+        updatedData = tintPattern.sub(r'\1\2\3%s' %newColor, updatedData)
+
+  return updatedData
+
 # cell handlers
 def findCells(data):
   cells = []
@@ -229,5 +270,19 @@ def matchBackgroundColors(elements, mapping):
       newColor = backgroundsMapping[originalColor]
 
     item['color'] = {'original': originalColor, 'new': newColor}
+
+def updateBackgroundColors(elements, data):
+  updatedData = data
+  for item in elements:
+    colorDict = item['color']
+    originalColor = colorDict['original']
+    newColor = colorDict['new']
+
+    if len(newColor) > 0:
+      pattern = re.compile(r'(\S*backgroundColor\s*=\s*)(UIColor)*(\.)%s' %originalColor)
+      updatedData = pattern.sub(r'\1\2\3%s' %newColor, updatedData)
+
+  return updatedData
+    
 
 main()
