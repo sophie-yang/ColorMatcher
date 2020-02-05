@@ -1,0 +1,30 @@
+{
+  "backgrounds": {
+    "white": "backgroundLight",
+    "coolGray100": "backgroundLightContrast",
+    "coolGray200": "backgroundLightContrast2",
+    "indigo900": "backgroundDark",
+    "indigo800": "backgroundDarkContrast",
+    "green100": "backgroundSuccess",
+    "red100": "backgroundError",
+    "orange100": "backgroundWarning"
+  },
+  "text": {
+    "white": "textOnDarkDefault",
+    "coolGray300": "textOnDarkSubtle",
+    "coolGray500": "textSubtle",
+    "midnight": "textDefault",
+    "indigo600": "linkOnLight",
+    "indigo400": "linkOnDark",
+    "tkRed500": "textBrand",
+    "green500": "textSuccess",
+    "red500": "textError",
+    "orange500": "textWarning"
+  },
+  "icons": {
+    "coolGray500": "iconSubtle",
+    "midnight": "iconDefault",
+    "indigo600": "iconLink",
+    "tkRed500": "iconCta"
+  }
+}
