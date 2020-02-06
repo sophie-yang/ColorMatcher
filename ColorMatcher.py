@@ -4,27 +4,30 @@ import glob
 import json
 
 class ElementList:
-  labels = []
   icons = []
-  cells = []
-  controllers = []
+  textColors = []
+  linkColors = []
+  borderColors = []
   backgroundColors = []
+  attributedStringColors = []
 
   def totalElementCount(self):
-    return len(self.controllers) + len(self.labels) + len(self.labels) + len(self.icons) + len(self.backgroundColors)
+    return len(self.icons) + len(self.textColors) + len(self.linkColors) + len(self.borderColors) + len(self.backgroundColors) + len(self.attributedStringColors)
 
 
 class ElementPattern:
-  labelPattern = re.compile(r'(\S*)(\s*:\s*|\s*=\s*)(XOLabel|UILabel)')
   iconPattern = re.compile(r'(.*)(\s*=?\s*)(XOKitIcon.*)')
+  iconElementPattern = re.compile(r'(\w+)(.setImage|.image)')
+  iconColorPattern = re.compile(r'(tinted\(\s*|color:\s*)(UIColor)?(\.)*(\w+)')
+  
   cellPattern = re.compile(r'(class\s*)(\S*)(\s*:.*Cell)')
   controllerPattern = re.compile(r'(class\s*)(\S*)(\s*:\s*XOViewController|UITabBarController|TabbedContainerViewController|XOWebViewController|OnboardingStepViewController|RegistrationChildPageViewController|XOTableViewController|UINavigationViewController|UIPageViewController|XOBaseWebViewController|RegistryBaseViewController|RegistrySectionBaseViewController)')
 
-  backgroundColorPattern = re.compile(r'(\S*backgroundColor\s*=\s*)(UIColor)*(\.)(\w+)')
-  iconColorPattern = re.compile(r'(tinted\(\s*|color:\s*)(UIColor)*(\.)*(\w+)')
-
-  labelElementPattern = re.compile(r'')
-  iconElementPattern = re.compile(r'(\w+)(.setImage|.image)')
+  textColorPattern = re.compile(r'(\S*textColor\s*=\s*)(UIColor)?(\.)(\w+)')
+  linkColorPattern = re.compile(r'(\S*setTitleColor\()(UIColor)?(\.)(\w+)(.*)')
+  borderColorPattern = re.compile(r'(\S*borderColor\s*=\s*)(UIColor)?(\.)(\w+)')
+  backgroundColorPattern = re.compile(r'(\S*backgroundColor\s*=\s*)(UIColor)?(\.)(\w+)')
+  attributedStringColorPattern = re.compile(r'(.*foregroundColor.*)(UIColor)?(\.)(\w+)(.*)')
 
 class ColorMapping:
   data = dict()
@@ -45,7 +48,7 @@ def main():
     if elementDict:
       allElements.append(elementDict)
 
-  jsonFile = open('/Users/sophieso/Documents/Workspace/ColorMatcher/result.json', 'w+')
+  jsonFile = open('/Users/sophieso/Documents/Workspace/ColorMatcher/change-log-for-dashboard.json', 'w+')
   json.dump(allElements, jsonFile)
   jsonFile.close()
     
@@ -53,10 +56,11 @@ def main():
 def searchSwiftFiles():
   basePath = '/Users/sophieso/Documents/Workspace/TKPlanner-iOS'
   searchPaths = [
-    # '/App/**/*.swift',
+    '/App/Dashboard/**/*.swift',
+    '/App/Launch/**/*.swift',
     # '/GuestServices/**/*.swift',
     # '/Utilities/**/*.swift',
-    '/VendorUI/**/*.swift',
+    # '/VendorUI/**/*.swift',
     # '/VendorUtilities/**/*.swift',
     # '/WeddingCountdown/**/*.swift',
   ]
@@ -74,79 +78,68 @@ def findUIElements(filePath):
     read_data = f.read()
     f.closed
 
-    elementList.labels = findLabels(read_data)
     elementList.icons = findIcons(read_data)
-    elementList.backgroundColors = findBackgroundColors(read_data)
+    elementList.textColors = findColors(ElementPattern.textColorPattern, read_data)
+    elementList.linkColors = findColors(ElementPattern.linkColorPattern, read_data)
+    elementList.borderColors = findColors(ElementPattern.borderColorPattern, read_data)
+    elementList.backgroundColors = findColors(ElementPattern.backgroundColorPattern, read_data)
+    elementList.attributedStringColors = findColors(ElementPattern.attributedStringColorPattern, read_data)
 
     mapping = ColorMapping()
     matchIconColors(elementList.icons, mapping)
-    matchLabelColors(elementList.labels, mapping)
-    matchBackgroundColors(elementList.backgroundColors, mapping)
+    matchColors(elementList.textColors, mapping.data['text'])
+    matchColors(elementList.linkColors, mapping.data['link'])
+    matchColors(elementList.borderColors, mapping.data['border'])
+    matchColors(elementList.backgroundColors, mapping.data['backgrounds'])
+    matchColors(elementList.attributedStringColors, mapping.data['text'])
 
-  updateColors(read_data, elementList, filePath)
+  updateAllColors(read_data, elementList, filePath)
 
   if elementList.totalElementCount() > 0:
-    elementDict = {'file': filePath, 'labels': elementList.labels, 'icons': elementList.icons, 'backgroundColors': elementList.backgroundColors}
+    elementDict = {'file': filePath, 'icons': elementList.icons, 'textColors': elementList.textColors, 'linkColors': elementList.linkColors, 'borderColors': elementList.borderColors, 'backgroundColors': elementList.backgroundColors, 'attributedStringColors': elementList.attributedStringColors}
     return elementDict
     
-def updateColors(data, elementList, filePath):
+def updateAllColors(data, elementList, filePath):
   updatedData = data
   updatedData = updateIconColors(elementList.icons, updatedData)
-  updatedData = updateLabelColors(elementList.labels, updatedData)
-  updatedData = updateBackgroundColors(elementList.backgroundColors, updatedData)
+  updatedData = updateColors('(\S*textColor\s*=\s*)(UIColor)*(\.)', elementList.textColors, updatedData)
+  updatedData = updateColors('(\S*setTitleColor\()(UIColor)?(\.)', elementList.linkColors, updatedData)
+  updatedData = updateColors('(\S*borderColor\s*=\s*)(UIColor)*(\.)', elementList.borderColors, updatedData)
+  updatedData = updateColors('(\S*backgroundColor\s*=\s*)(UIColor)*(\.)', elementList.backgroundColors, updatedData)
+  updatedData = updateColors('(.*foregroundColor.*)(UIColor)?(\.)', elementList.attributedStringColors, updatedData)
 
   with open(filePath, 'w') as f:
     f.write(updatedData)
 
-# label handlers
-def findLabels(data):
-  labels = []
-  result = ElementPattern.labelPattern.findall(data)
-  for item in result:
-    if len(item) > 1 and len(item[0]) > 0:
-      element = item[0]
-      color = searchLabelTextColor(element, data)
-
-      labels.append({'element': element, 'color': color})
-  return labels
-
-def searchLabelTextColor(element, fileData):
+def findColors(pattern, data):
   colors = []
-  pattern = re.compile(r'(%s.textColor\s*=\s*)(UIColor)?(\.)(\w+)' %element)
-  result = pattern.findall(fileData)
+  result = pattern.findall(data)
   for item in result:
-    if len(item) > 3 and len(item[3]) > 0:
-      colors.append(item[3])
-
+    if len(item) > 1 and len(item[3]) > 0:
+      colors.append({'item': ''.join(item), 'color': item[3]})
+    
   return colors
 
-def matchLabelColors(elements, mapping):
-  textMapping = mapping.data['text']
+def matchColors(elements, mapping):
   for item in elements:
-    matchedColors = []
-    for color in item['color']:
-      originalColor = color
-      newColor = ''
+    originalColor = item['color']
+    newColor = ''
 
-      if originalColor in textMapping:
-        newColor = textMapping[originalColor]
+    if originalColor in mapping:
+      newColor = mapping[originalColor]
 
-      matchedColors.append({'original': originalColor, 'new': newColor})
+    item['color'] = {'original': originalColor, 'new': newColor}
 
-    item['color'] = matchedColors
-
-def updateLabelColors(elements, data):
+def updateColors(patternString, elements, data):
   updatedData = data
   for item in elements:
-    element = item['element']
+    colorDict = item['color']
+    originalColor = colorDict['original']
+    newColor = colorDict['new']
 
-    for color in item['color']:
-      originalColor = color['original']
-      newColor = color['new']
-
-      if len(newColor) > 0:
-        pattern = re.compile(r'(%s.textColor\s*=\s*)(UIColor)?(\.)%s' %(element, originalColor))
-        updatedData = pattern.sub(r'\1\2\3%s' %newColor, updatedData)
+    if len(newColor) > 0:
+      pattern = re.compile(r'%s%s' %(patternString, originalColor))
+      updatedData = pattern.sub(r'\1\2\3%s' %newColor, updatedData)
 
   return updatedData
 
@@ -188,7 +181,7 @@ def findIconElements(data):
 
 def searchIconTintColor(element, fileData):
   colors = []
-  pattern = re.compile(r'(%s.tintColor\s*=\s*)(UIColor)?(\.)(\w+)' %element)
+  pattern = re.compile(r'(%s\?*.tintColor\s*=\s*)(UIColor)?(\.)(\w+)' %element)
   result = pattern.findall(fileData)
   for item in result:
     if len(item) > 3 and len(item[3]) > 0:
@@ -225,7 +218,7 @@ def updateIconColors(elements, data):
         iconPattern = re.compile(r'(tinted\(\s*|color:\s*)(UIColor)*(\.)*%s' %originalColor)
         updatedData = iconPattern.sub(r'\1\2\3%s' %newColor, updatedData)
 
-        tintPattern = re.compile(r'(%s.tintColor\s*=\s*)(UIColor)?(\.)%s' %(element, originalColor))
+        tintPattern = re.compile(r'(%s\?*.tintColor\s*=\s*)(UIColor)?(\.)%s' %(element, originalColor))
         updatedData = tintPattern.sub(r'\1\2\3%s' %newColor, updatedData)
 
   return updatedData
@@ -249,40 +242,5 @@ def matchControllers(data):
       controllers.append(item[1])
     
   return controllers
-
-# backgroundColor handlers
-def findBackgroundColors(data):
-  backgroundColors = []
-  result = ElementPattern.backgroundColorPattern.findall(data)
-  for item in result:
-    if len(item) > 1 and len(item[3]) > 0:
-      backgroundColors.append({'item': ''.join(item), 'color': item[3]})
-    
-  return backgroundColors
-
-def matchBackgroundColors(elements, mapping):
-  backgroundsMapping = mapping.data['backgrounds']
-  for item in elements:
-    originalColor = item['color']
-    newColor = ''
-
-    if originalColor in backgroundsMapping:
-      newColor = backgroundsMapping[originalColor]
-
-    item['color'] = {'original': originalColor, 'new': newColor}
-
-def updateBackgroundColors(elements, data):
-  updatedData = data
-  for item in elements:
-    colorDict = item['color']
-    originalColor = colorDict['original']
-    newColor = colorDict['new']
-
-    if len(newColor) > 0:
-      pattern = re.compile(r'(\S*backgroundColor\s*=\s*)(UIColor)*(\.)%s' %originalColor)
-      updatedData = pattern.sub(r'\1\2\3%s' %newColor, updatedData)
-
-  return updatedData
-    
 
 main()

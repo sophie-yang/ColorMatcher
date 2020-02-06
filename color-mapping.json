@@ -25,6 +25,17 @@
     "coolGray500": "iconSubtle",
     "midnight": "iconDefault",
     "indigo600": "iconLink",
-    "tkRed500": "iconCta"
+    "tkRed500": "iconCta",
+    "white": "iconOnDark"
+  },
+  "border": {
+    "coolGray300": "borderDefault",
+    "coolGray500": "borderSelected",
+    "green500": "borderSuccess",
+    "red500": "borderError"
+  },
+  "link": {
+    "indigo600": "linkOnLight",
+    "indigo400": "linkOnDark"
   }
 }
