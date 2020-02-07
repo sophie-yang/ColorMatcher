@@ -27,7 +27,7 @@ class ElementPattern:
   linkColorPattern = re.compile(r'(\S*setTitleColor\()(UIColor)?(\.)(\w+)(.*)')
   borderColorPattern = re.compile(r'(\S*borderColor\s*=\s*)(UIColor)?(\.)(\w+)')
   backgroundColorPattern = re.compile(r'(\S*backgroundColor\s*=\s*)(UIColor)?(\.)(\w+)')
-  attributedStringColorPattern = re.compile(r'(.*foregroundColor.*)(UIColor)?(\.)(\w+)(.*)')
+  attributedStringColorPattern = re.compile(r'(.*foregroundColor\s*:\s*)(UIColor)?(\.)(\w+)(.*)')
 
 class ColorMapping:
   data = dict()
@@ -48,7 +48,7 @@ def main():
     if elementDict:
       allElements.append(elementDict)
 
-  jsonFile = open('/Users/sophieso/Documents/Workspace/ColorMatcher/change-log-for-dashboard.json', 'w+')
+  jsonFile = open('/Users/sophieso/Documents/Workspace/ColorMatcher/change-log-for-marketplace.json', 'w+')
   json.dump(allElements, jsonFile)
   jsonFile.close()
     
@@ -56,12 +56,13 @@ def main():
 def searchSwiftFiles():
   basePath = '/Users/sophieso/Documents/Workspace/TKPlanner-iOS'
   searchPaths = [
-    '/App/Dashboard/**/*.swift',
-    '/App/Launch/**/*.swift',
+    # '/App/Dashboard/**/*.swift',    - Done
+    # '/App/Launch/**/*.swift',       - Done
+    '/App/Vendors/**/*.swift',
+    '/VendorUI/**/*.swift',
+    '/VendorUtilities/**/*.swift',
     # '/GuestServices/**/*.swift',
     # '/Utilities/**/*.swift',
-    # '/VendorUI/**/*.swift',
-    # '/VendorUtilities/**/*.swift',
     # '/WeddingCountdown/**/*.swift',
   ]
 
@@ -106,7 +107,7 @@ def updateAllColors(data, elementList, filePath):
   updatedData = updateColors('(\S*setTitleColor\()(UIColor)?(\.)', elementList.linkColors, updatedData)
   updatedData = updateColors('(\S*borderColor\s*=\s*)(UIColor)*(\.)', elementList.borderColors, updatedData)
   updatedData = updateColors('(\S*backgroundColor\s*=\s*)(UIColor)*(\.)', elementList.backgroundColors, updatedData)
-  updatedData = updateColors('(.*foregroundColor.*)(UIColor)?(\.)', elementList.attributedStringColors, updatedData)
+  updatedData = updateColors('(.*foregroundColor\s*:\s*)(UIColor)?(\.)', elementList.attributedStringColors, updatedData)
 
   with open(filePath, 'w') as f:
     f.write(updatedData)
